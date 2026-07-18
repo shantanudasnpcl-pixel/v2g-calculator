@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V2G Payback Calculator | Grid Intelligence</title>
+<style>
+  :root{
+    --bg:#0B1622; --bg2:#0E2033; --panel:#122A42; --line:#22405C;
+    --cyan:#2DD4BF; --amber:#F5B841; --ink:#FFFFFF; --muted:#9FB6CC; --dim:#7E97AE;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:linear-gradient(160deg,#0B1622,#0E2033 55%,#122A42);
+    color:var(--ink); font-family:'Helvetica Neue',Arial,sans-serif;
+    min-height:100vh; padding:28px 16px 56px;
+  }
+  .wrap{max-width:860px; margin:0 auto}
+  .eyebrow{color:var(--cyan); font-size:13px; letter-spacing:4px; font-weight:700; margin-bottom:6px}
+  h1{font-size:32px; font-weight:800; margin:0 0 6px; letter-spacing:-0.5px}
+  .sub{color:var(--muted); font-size:16px; margin:0 0 4px; line-height:1.5}
+  .rule{height:1px; background:var(--line); margin:20px 0 24px}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:20px}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px}
+  .card h2{font-size:13px; letter-spacing:1px; color:var(--cyan); margin:0 0 16px; font-weight:700; text-transform:uppercase}
+  label{display:block; font-size:13px; color:var(--muted); margin:14px 0 6px; font-weight:600}
+  label:first-of-type{margin-top:0}
+  select,input[type=number]{
+    width:100%; background:var(--bg2); border:1px solid var(--line); color:var(--ink);
+    padding:10px 12px; border-radius:8px; font-size:15px; font-family:inherit;
+  }
+  select:focus,input:focus{outline:2px solid var(--cyan); outline-offset:1px}
+  .range-row{display:flex; align-items:center; gap:12px}
+  input[type=range]{flex:1; accent-color:var(--cyan)}
+  .range-val{font-family:'Courier New',monospace; color:var(--cyan); font-weight:700; min-width:70px; text-align:right; font-size:15px}
+  .hint{font-size:11px; color:var(--dim); margin-top:5px; line-height:1.4}
+
+  /* results */
+  .result-head{font-size:13px; letter-spacing:1px; color:var(--amber); font-weight:700; text-transform:uppercase; margin:0 0 16px}
+  .big{font-family:'Courier New',monospace; font-weight:700; line-height:1}
+  .payback-num{font-size:52px; color:var(--amber)}
+  .payback-label{font-size:14px; color:var(--muted); margin-top:6px}
+  .metric{display:flex; justify-content:space-between; align-items:baseline; padding:11px 0; border-bottom:1px solid var(--line)}
+  .metric:last-child{border-bottom:none}
+  .metric .k{font-size:13px; color:var(--muted)}
+  .metric .v{font-family:'Courier New',monospace; font-size:16px; font-weight:700; color:var(--ink)}
+  .verdict{margin-top:16px; padding:14px 16px; border-radius:10px; font-size:14px; line-height:1.5; border:1px solid var(--line); background:var(--bg2)}
+  .verdict strong{color:var(--amber)}
+  .bar{height:8px; background:var(--bg); border-radius:6px; overflow:hidden; margin:10px 0 4px}
+  .bar > div{height:100%; background:linear-gradient(90deg,var(--cyan),var(--amber)); width:0%; transition:width .4s ease}
+
+  .foot{margin-top:26px; font-size:12px; color:var(--dim); line-height:1.6}
+  .foot a{color:var(--cyan); text-decoration:none}
+  .foot a:hover{text-decoration:underline}
+  .assumptions{margin-top:14px; font-size:12px; color:var(--dim)}
+  .assumptions summary{cursor:pointer; color:var(--muted); font-weight:600}
+  .assumptions ul{margin:8px 0 0; padding-left:18px; line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">GRID INTELLIGENCE &nbsp;/&nbsp; EDITION 09</div>
+  <h1>The V2G Payback Calculator</h1>
+  <p class="sub">Run your own numbers. Vehicle-to-grid earns real money, but does it earn enough to justify the hardware? Adjust the inputs and watch the payback period move.</p>
+  <div class="rule"></div>
+
+  <div class="grid">
+    <!-- INPUTS -->
+    <div class="card">
+      <h2>Your inputs</h2>
+
+      <label for="region">Region</label>
+      <select id="region"></select>
+      <div class="hint" id="regionHint"></div>
+
+      <label for="battery">EV usable battery size</label>
+      <div class="range-row">
+        <input type="range" id="battery" min="20" max="110" step="5" value="60">
+        <span class="range-val" id="batteryVal">60 kWh</span>
+      </div>
+
+      <label for="days">Days per week you would participate</label>
+      <div class="range-row">
+        <input type="range" id="days" min="1" max="7" step="1" value="4">
+        <span class="range-val" id="daysVal">4 days</span>
+      </div>
+
+      <label for="charger">Bidirectional charger cost (installed)</label>
+      <div class="range-row">
+        <input type="range" id="charger" min="1500" max="8000" step="250" value="4500">
+        <span class="range-val" id="chargerVal">$4,500</span>
+      </div>
+      <div class="hint">Bidirectional units and installation typically run several thousand, well above a one-way charger.</div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="card">
+      <div class="result-head">The verdict</div>
+      <div class="big payback-num" id="paybackNum">--</div>
+      <div class="payback-label" id="paybackLabel">estimated payback period</div>
+      <div class="bar"><div id="utilBar"></div></div>
+      <div class="hint" id="utilText"></div>
+
+      <div style="height:14px"></div>
+
+      <div class="metric"><span class="k">Estimated annual earnings</span><span class="v" id="annual">--</span></div>
+      <div class="metric"><span class="k">Effective battery utilization</span><span class="v" id="util">--</span></div>
+      <div class="metric"><span class="k">Discharge hours per year</span><span class="v" id="hours">--</span></div>
+      <div class="metric"><span class="k">Charger cost</span><span class="v" id="cost">--</span></div>
+
+      <div class="verdict" id="verdict"></div>
+    </div>
+  </div>
+
+  <details class="assumptions">
+    <summary>How this is calculated (assumptions)</summary>
+    <ul>
+      <li>Earnings are modelled from published 2025 pilot ranges: households with V2G earned a median of roughly USD 420 to 780 per year from grid services and bill savings.</li>
+      <li>A regional multiplier scales that baseline up or down by how developed each market's V2G rules and tariffs are.</li>
+      <li>Earnings also scale gently with battery size and participation days, with diminishing returns, since real programmes cap how much they call on any one vehicle.</li>
+      <li>Utilization reflects the finding that even active V2G participants discharge to the grid under 2 percent of the year, fewer than 200 hours per vehicle.</li>
+      <li>Figures are illustrative estimates for discussion, not financial advice. Real results depend on your utility, tariff, vehicle, and local interconnection rules.</li>
+    </ul>
+  </details>
+
+  <div class="foot">
+    Built for <strong>Grid Intelligence</strong>, an independent, vendor-neutral publication on utility OT and grid modernization.
+    No vehicle, charger, utility, or platform is endorsed. Ranges drawn from IEA and published pilot data.
+  </div>
+</div>
+
+<script>
+  // Regional multipliers reflect how mature each market's V2G rules/tariffs are.
+  // Higher = more developed monetization pathways today.
+  const REGIONS = [
+    {id:"eu",  name:"EU / EMEA",        mult:1.25, hint:"First commercial V2G offers; aggregation enabled in several markets."},
+    {id:"anz", name:"ANZ (Aus / NZ)",  mult:1.15, hint:"Mature VPP programmes; strong frequency-service markets."},
+    {id:"na",  name:"North America",    mult:1.05, hint:"Wholesale access via FERC Order 2222, but program caps bite."},
+    {id:"cn",  name:"Greater China",    mult:1.00, hint:"Fast pilots and targets; protocols still standardizing."},
+    {id:"jpac",name:"JPAC / Japan",     mult:0.95, hint:"Years of pilots; monetization still largely pre-commercial."},
+    {id:"apac",name:"APAC (broad)",     mult:0.80, hint:"Fastest-growing, but rules and standards vary widely."},
+    {id:"me",  name:"Middle East",      mult:0.70, hint:"Solar-rich; aggregation frameworks still forming."},
+    {id:"sea", name:"Southeast Asia",   mult:0.65, hint:"Rapid EV adoption; V2G mostly in policy sandboxes."},
+    {id:"latam",name:"Latin America",   mult:0.60, hint:"Market reforms starting to enable aggregators."},
+    {id:"africa",name:"Africa",         mult:0.50, hint:"Access-first context; V2G monetization nascent."}
+  ];
+
+  const BASE = 600;          // midpoint of the 420-780 pilot band (USD/yr)
+  const el = id => document.getElementById(id);
+
+  // populate region dropdown
+  const regionSel = el('region');
+  REGIONS.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r.id; o.textContent = r.name; regionSel.appendChild(o);
+  });
+  regionSel.value = "na";
+
+  function fmt(n){ return '$' + Math.round(n).toLocaleString(); }
+
+  function calc(){
+    const region = REGIONS.find(r => r.id === regionSel.value);
+    const battery = +el('battery').value;
+    const days = +el('days').value;
+    const charger = +el('charger').value;
+
+    el('batteryVal').textContent = battery + ' kWh';
+    el('daysVal').textContent = days + (days===1?' day':' days');
+    el('chargerVal').textContent = fmt(charger);
+    el('regionHint').textContent = region.hint;
+
+    // battery factor: gentle, diminishing (60 kWh = 1.0 baseline)
+    const batteryFactor = Math.pow(battery/60, 0.5);
+    // participation factor: diminishing returns past a few days/week
+    const daysFactor = Math.pow(days/4, 0.6);
+
+    const annual = BASE * region.mult * batteryFactor * daysFactor;
+
+    // utilization: anchored under 2%, scales a little with days
+    const utilPct = Math.min(1.9, 0.5 + days*0.20); // 0.7% at 1 day up to ~1.9%
+    const dischargeHours = Math.round(utilPct/100 * 8760);
+
+    const paybackYears = charger / annual;
+
+    // write results
+    el('annual').textContent = fmt(annual) + ' / yr';
+    el('util').textContent = utilPct.toFixed(1) + '%';
+    el('hours').textContent = dischargeHours + ' hrs';
+    el('cost').textContent = fmt(charger);
+
+    el('paybackNum').textContent = paybackYears >= 100 ? '100+' : paybackYears.toFixed(1);
+    el('paybackLabel').textContent = (paybackYears>=100?'years':'years') + ' to recover the charger cost';
+
+    // utilization bar (out of a 2% ceiling for drama)
+    el('utilBar').style.width = Math.min(100, (utilPct/2)*100) + '%';
+    el('utilText').textContent = 'The battery works for the grid roughly ' + utilPct.toFixed(1) +
+      '% of the year. Most of its capacity sits idle.';
+
+    // verdict copy
+    let v;
+    if (paybackYears <= 5){
+      v = 'At these settings the charger pays for itself in <strong>'+paybackYears.toFixed(1)+' years</strong>. This is roughly the useful life of the hardware, so the case is workable but tight, and it depends on the programme staying open.';
+    } else if (paybackYears <= 10){
+      v = 'Payback lands around <strong>'+paybackYears.toFixed(1)+' years</strong>. That is a long horizon for consumer hardware whose warranty and software support may not outlast it. The grid value is real; the household case is marginal.';
+    } else {
+      v = 'Payback stretches past <strong>'+ (paybackYears>=100?'a lifetime':paybackYears.toFixed(0)+' years') +'</strong>. This is the paradox in one number: the capability is genuine, but the private business case for the hardware, on its own, does not close. This is why the winning models so far leaned on public subsidy or fleet economics.';
+    }
+    el('verdict').innerHTML = v;
+  }
+
+  ['region','battery','days','charger'].forEach(id => {
+    el(id).addEventListener('input', calc);
+    el(id).addEventListener('change', calc);
+  });
+  calc();
+</script>
+</body>
+</html>
